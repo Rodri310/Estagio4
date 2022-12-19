@@ -1,0 +1,264 @@
+---
+output:
+  html_document: default
+  pdf_document: default
+---
+```{r eval=FALSE, include=FALSE}
+
+
+
+# Install and load the rio package
+install.packages("rio")
+install_formats()
+```
+
+```{r include=FALSE}
+
+
+
+#load library
+library(rio)
+library(ggplot2)
+library(reshape2)
+library(tidyverse)
+library(dplyr)
+
+
+# Read the xlsx file into a list
+Combustivel <- import_list("C:/Users/rodri/Documents/Estagio/dados_desafiodatascientistintern_vendas_distribuidoras_anp.xlsx")
+
+# Split the list into 3 data frames
+diesel <- split(Combustivel, rep(1:3, each = length(Combustivel)/3))[[1]]
+gasolina <- split(Combustivel, rep(1:3, each = length(Combustivel)/3))[[2]]
+etanol <- split(Combustivel, rep(1:3, each = length(Combustivel)/3))[[3]]
+
+# Transform each element into a data frame
+diesel_df <- do.call(rbind, diesel)
+gasolina_df <- do.call(rbind, gasolina)
+etanol_df <- do.call(rbind, etanol)
+
+# reshape the data frame  separating brazil from the other regions
+diesel_df_long <- melt(diesel_df, id.vars = c("regiao", "meses"))
+diesel_df_long <- diesel_df_long |> 
+  mutate(value = value/1000)
+colnames(diesel_df_long)[colnames(diesel_df_long) == "variable"] <- "ano"
+brd_df <- subset(diesel_df_long, regiao == "br")
+brd_df$ano <- as.numeric(as.character(brd_df$ano))
+mean_valuesd <- aggregate(value ~ meses, data = brd_df, mean)
+
+gasolina_df_long <- melt(gasolina_df, id.vars = c("regiao", "meses"))
+gasolina_df_long <- gasolina_df_long |> 
+  mutate(value = value/1000)
+colnames(gasolina_df_long)[colnames(gasolina_df_long) == "variable"] <- "ano"
+brg_df <- subset(gasolina_df_long, regiao == "br")
+brg_df$ano <- as.numeric(as.character(brg_df$ano))
+mean_valuesg <- aggregate(value ~ meses, data = brg_df, mean)
+
+etanol_df_long <- melt(etanol_df, id.vars = c("regiao", "meses"))
+etanol_df_long <- etanol_df_long |> 
+  mutate(value = value/1000)
+colnames(etanol_df_long)[colnames(etanol_df_long) == "variable"] <- "ano"
+bre_df <- subset(etanol_df_long, regiao == "br")
+bre_df$ano <- as.numeric(as.character(bre_df$ano))
+mean_valuese <- aggregate(value ~ meses, data = bre_df, mean)
+
+#summing all values into one data frame with all the value
+combu_df <- bind_rows(etanol_df_long, gasolina_df_long, diesel_df_long) |>
+  group_by(regiao, ano) |>
+  summarise(valor_total = sum(value))
+#doing more thing with combu_df
+combu_df <- combu_df |> mutate(regiao = toupper(regiao))
+combu_dfbr <- subset(combu_df, regiao == "BR")
+
+```
+
+```{r echo=FALSE}
+
+
+
+# create the graph diesel
+mean_valuesdd <- mean(mean_valuesd$value)
+ggplot(data = mean_valuesd, aes(x = meses, y = value)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:12) +
+  geom_hline(yintercept = mean_valuesdd, color = "red") + 
+  labs(title = "Valor medio de venda de diesel por mes no Brasil", x = "mes", y = "Diesel")
+# create the graph gasolina
+mean_valuesgg <- mean(mean_valuesg$value)
+ggplot(data = mean_valuesg, aes(x = meses, y = value)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:12) +
+  geom_hline(yintercept = mean_valuesgg, color = "red") + 
+  labs(title = "Valor medio de venda de gasolina por mes no Brasil", x = "mes", y = "Gasolina")
+# create the graph etanol
+mean_valuesee <- mean(mean_valuese$value)
+ggplot(data = mean_valuese, aes(x = meses, y = value)) +
+  geom_line() +
+  geom_point() +
+  scale_x_continuous(breaks = 1:12) +
+  geom_hline(yintercept = mean_valuesee, color = "red") + 
+  labs(title = "Valor medio de venda de etanol por mes no Brasil", x = "mes", y = "etanol")
+```
+
+```{r include=FALSE}
+#excluding Brazil from the data frame
+dfdiesel_e <- subset(diesel_df_long, regiao != "br")
+dfgasolina_e <- subset(gasolina_df_long, regiao != "br")
+dfetanol_e <- subset(etanol_df_long, regiao != "br")
+#mean of the same regiao + mes
+mean_diesel_e <- aggregate(value ~ regiao + meses, data = dfdiesel_e, mean)
+mean_gasolina_e <- aggregate(value ~ regiao + meses, data = dfgasolina_e, mean)
+mean_etanol_e <- aggregate(value ~ regiao + meses, data = dfetanol_e, mean)
+#sum of the same regiao
+sum_diesel_e <- aggregate(value~ regiao, data = dfdiesel_e, FUN = sum)
+sum_gasolina_e <- aggregate(value~ regiao, data = dfgasolina_e, FUN = sum)
+sum_etanol_e <- aggregate(value~ regiao, data = dfetanol_e, FUN = sum)
+
+#calculate the percentage of each value
+sum_diesel_e$percent <- sum_diesel_e$value / sum(sum_diesel_e$value)
+sum_gasolina_e$percent <- sum_gasolina_e$value / sum(sum_gasolina_e$value)
+sum_etanol_e$percent <- sum_etanol_e$value / sum(sum_etanol_e$value)
+
+```
+
+```{r echo=FALSE}
+ggplot(data = mean_diesel_e, aes(x = meses, y = value, group = regiao, color = regiao)) +
+  geom_line() + 
+  geom_point() +
+  scale_x_continuous(breaks = 1:12) +
+  labs(title = "Valor medio de venda de diesel por mes nas regioes ", x = "Meses", y = "Diesel em mil m³")
+ggplot(data = mean_gasolina_e, aes(x = meses, y = value, group = regiao, color = regiao)) +
+  geom_line() + 
+  geom_point() +
+  scale_x_continuous(breaks = 1:12) +
+  labs(title = "Valor medio de venda de gasolina por mes nas regioes ", x = "Meses", y = "Gasolina em mil m³")
+ggplot(data = mean_etanol_e, aes(x = meses, y = value, group = regiao, color = regiao)) +
+  geom_line() + 
+  geom_point() +
+  scale_x_continuous(breaks = 1:12) +
+  labs(title = "Valor medio de venda de gasolina por mes nas regioes ", x = "Meses", y = "Etanol em mil m³")
+```
+
+```{r echo=FALSE}
+#Making a pie chart represent the consumption of each regiao
+ggplot(data = sum_diesel_e, aes(x = "", y = percent, fill = regiao)) +
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  labs(title = "Porcetagem de consumo de diesel por regiao", x = "", y = "") +
+  geom_text(aes(label = paste(round(percent * 100), "%")), position = position_stack(vjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        plot.margin = margin(1,1,1,1),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank()) +
+  guides(fill = guide_legend(title = 'Região'))
+
+ggplot(data = sum_gasolina_e, aes(x = "", y = percent, fill = regiao)) +
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  labs(title = "Porcetagem de consumo de gasolina por regiao", x = "", y = "") +
+  geom_text(aes(label = paste(round(percent * 100), "%")), position = position_stack(vjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        plot.margin = margin(1,1,1,1),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank()) +
+  guides(fill = guide_legend(title = 'Região'))
+
+ggplot(data = sum_etanol_e, aes(x = "", y = percent, fill = regiao)) +
+  geom_bar(width = 1, stat = "identity", color = "black") +
+  coord_polar("y", start = 0) +
+  labs(title = "Porcetagem de consumo de etanol por regiao", x = "", y = "") +
+  geom_text(aes(label = paste(round(percent * 100), "%")), position = position_stack(vjust = 0.5)) +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        plot.title = element_text(size = 14, hjust = 0.5),
+        axis.text.x = element_blank(),
+        axis.text.y = element_blank(),
+        plot.margin = margin(1,1,1,1),
+        panel.grid = element_blank(),
+        panel.border = element_blank(),
+        plot.background = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank()) +
+  guides(fill = guide_legend(title = 'Região'))
+```
+
+```{r include=FALSE}
+#Sum of sales per year in Brazil
+sumbr_diesel <- aggregate(value~ ano, data = brd_df, FUN = sum)
+sumbr_gasolina <- aggregate(value~ ano, data = brg_df, FUN = sum)
+sumbr_etanol <- aggregate(value~ ano, data = bre_df, FUN = sum)
+#subset with ano>2015
+sumbr_etanol_subset <- subset(sumbr_etanol, ano >= 2015)
+sumbr_gasolina_subset <- subset(sumbr_gasolina, ano >= 2015)
+sumbr_diesel_subset <- subset(sumbr_diesel, ano >= 2015)
+combu_dfbr$ano <- as.numeric(as.character(combu_dfbr$ano))
+combu_dfbr_subset <- subset(combu_dfbr, ano >= 2015)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+#creating bar plot
+#ggplot(sumbr_etanol, aes(x=ano, y=value)) +
+#  geom_bar(stat="identity") +
+#  ggtitle("Venda de Etanol no Brasil") +
+#  xlab("Ano") +
+#  ylab("Venda de etanol (1000 m³)") +
+#  theme(plot.title = element_text(size=16, face="bold"),
+#       axis.title = element_text(size=14),
+#        axis.text = element_text(size=12))
+#plot for ano>2015
+ggplot(sumbr_etanol_subset, aes(x=ano, y=value)) +
+  geom_bar(stat="identity") +
+  geom_smooth() +
+  ggtitle("Venda de Etanol no Brasil a partir de 2015") +
+  xlab("Ano") +
+  ylab("Venda de etanol (1000 m³)") +
+  theme(plot.title = element_text(size=16, face="bold"),
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12))
+ggplot(sumbr_gasolina_subset, aes(x=ano, y=value)) +
+  geom_bar(stat="identity") +
+  geom_smooth() +
+  ggtitle("Venda de gasolina no Brasil a partir de 2015") +
+  xlab("Ano") +
+  ylab("Venda de gasolina (1000 m³)") +
+  theme(plot.title = element_text(size=16, face="bold"),
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12))
+ggplot(sumbr_diesel_subset, aes(x=ano, y=value)) +
+  geom_bar(stat="identity") +
+  geom_smooth() +
+  ggtitle("Venda de diesel no Brasil a partir de 2015") +
+  xlab("Ano") +
+  ylab("Venda de diesel (1000 m³)") +
+  theme(plot.title = element_text(size=16, face="bold"),
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12))
+ggplot(combu_dfbr_subset, aes(x=ano, y=valor_total)) +
+  geom_bar(stat="identity") +
+  geom_smooth() +
+  ggtitle("Venda de combustivel no Brasil a partir de 2015") +
+  xlab("Ano") +
+  ylab("Venda de combustivel (1000 m³)") +
+  theme(plot.title = element_text(size=16, face="bold"),
+        axis.title = element_text(size=14),
+        axis.text = element_text(size=12))
+
+
+```
+
