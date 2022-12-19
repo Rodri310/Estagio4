@@ -10,6 +10,10 @@ output:
 # Install and load the rio package
 install.packages("rio")
 install_formats()
+install.packages("ggplot2")
+install.packages("reshape2")
+install.packages("tidyverse")
+install.packages("dplyr")
 ```
 
 ```{r include=FALSE}
